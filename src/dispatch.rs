@@ -14,6 +14,7 @@
 //! }
 //! ````
 
+use crate::config::binds::{Join, Mod};
 use crate::default_instance;
 use crate::dispatch::fmt::*;
 use crate::error::HyprError;
@@ -279,22 +280,6 @@ pub enum WindowMove<'a> {
     Direction(Direction),
 }
 
-// This enum hold the mod keys
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Display)]
-pub enum Mod {
-    #[display("shift")]
-    Shift,
-    #[display("control")]
-    Control,
-    #[display("super")]
-    Super,
-    #[display("alt")]
-    Alt,
-    #[display("caps")]
-    Caps,
-}
-
 // This enum hold the key state
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Display)]
@@ -415,9 +400,9 @@ pub enum DispatchType<'a> {
     /// keybind, its used for global keybinds. And should **ONLY** be used with keybinds
     Pass(WindowIdentifier<'a>),
     /// Sends specified keys (with mods) to an optionally specified window
-    SendShortcut(Mod, &'a str, Option<WindowIdentifier<'a>>),
+    SendShortcut(Vec<Mod>, &'a str, Option<WindowIdentifier<'a>>),
     /// Send a key with specific state to a specified window
-    SendKeyState(Mod, &'a str, KeyState, WindowIdentifier<'a>),
+    SendKeyState(Vec<Mod>, &'a str, KeyState, WindowIdentifier<'a>),
     /// Executes a Global Shortcut using the GlobalShortcuts portal.
     Global(&'a str),
     /// This dispatcher kills the active window/client
@@ -675,9 +660,13 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         Custom(name, args) => format!("{name}{sep}{args}"),
         Exec(sh) => format!("exec{sep}{sh}"),
         Pass(win) => format!("pass{sep}{win}"),
-        SendShortcut(md, key, Some(win)) => format!("sendshortcut{sep}{md},{key},{win}"),
-        SendShortcut(md, key, None) => format!("sendshortcut{sep}{md},{key},"),
-        SendKeyState(md, key, state, win) => format!("sendkeystate{sep}{md},{key},{state},{win}"),
+        SendShortcut(mods, key, Some(win)) => {
+            format!("sendshortcut{sep}{},{key},{win}", mods.join())
+        }
+        SendShortcut(mods, key, None) => format!("sendshortcut{sep}{},{key},", mods.join()),
+        SendKeyState(mods, key, state, win) => {
+            format!("sendkeystate{sep}{},{key},{state},{win}", mods.join())
+        }
         Global(name) => format!("global{sep}{name}"),
         KillActiveWindow => "killactive".to_string(),
         CloseWindow(win) => format!("closewindow{sep}{win}"),
