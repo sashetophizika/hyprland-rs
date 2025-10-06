@@ -33,9 +33,21 @@ pub enum WindowIdentifier<'a> {
     /// The window title
     #[display("title:{_0}")]
     Title(&'a str),
+    /// A window tag regex
+    #[display("tag:{_0}")]
+    Tag(&'a str),
     /// The window's process Id
     #[display("pid:{_0}")]
     ProcessId(u32),
+    /// The active window
+    #[display("activewindow")]
+    ActiveWindow,
+    /// The first floating window
+    #[display("floating")]
+    Floating,
+    /// The first tiled window
+    #[display("tiled")]
+    Tiled,
 }
 
 /// This enum holds the fullscreen types
@@ -67,22 +79,20 @@ pub enum Direction {
 }
 
 /// This enum is used for resizing and moving windows precisely
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum Position {
-    /// A delta
+    /// A delta in pixels
+    #[display("{_0} {_0}")]
     Delta(i16, i16),
-    /// The exact size
+    /// The exact size in pixels
+    #[display("exact {_0} {_0}")]
     Exact(i16, i16),
-}
-
-impl std::fmt::Display for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let out = match self {
-            Position::Delta(x, y) => format!("{x} {y}"),
-            Position::Exact(w, h) => format!("exact {w} {h}"),
-        };
-        write!(f, "{out}")
-    }
+    /// A delta in window fraction
+    #[display("{_0}% {_0}%")]
+    DeltaFraction(i16, i16),
+    /// The exact size in screen fraction
+    #[display("exact {_0}% {_0}%")]
+    ExactFraction(i16, i16),
 }
 
 /// This enum holds a direction for cycling
@@ -103,6 +113,8 @@ pub enum WindowSwitchDirection {
     Back,
     #[display("f")]
     Forward,
+    #[display("{}", _0)]
+    Index(i32),
 }
 
 /// This enum is used for identifying monitors
@@ -573,10 +585,32 @@ pub enum DispatchType<'a> {
     ChangeGroupActive(WindowSwitchDirection),
     /// Locks the groups
     LockGroups(LockType),
+    /// Locks the currently focused group
+    LockActiveGroup(LockType),
     /// Moves the active window into a group in a specified direction
     MoveIntoGroup(Direction),
+    /// Moves the active window into or out of a group in a specified direction
+    MoveWindowOrGroup(Direction),
     /// Moves the active window out of a group.
     MoveOutOfGroup,
+    /// Swaps the active window with the next or previous in a group
+    MoveGroupWindow(WindowSwitchDirection),
+    /// Prohibit the active window from becoming or being inserted into group
+    DenyWindowFromGroup(BinaryState),
+    /// Temporarily enable or disable ignore_group_lock
+    SetIgnoreGroupLock(BinaryState),
+}
+
+/// Enum used for options with a binary on/off state
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, Display, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BinaryState {
+    #[display("on")]
+    On,
+    #[display("off")]
+    Off,
+    #[display("toggle")]
+    Toggle,
 }
 
 /// Enum used with [DispatchType::LockGroups], to determine how to lock/unlock
@@ -767,8 +801,13 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         ToggleGroup => "togglegroup".to_string(),
         ChangeGroupActive(dir) => format!("changegroupactive{sep}{dir}"),
         LockGroups(how) => format!("lockgroups{sep}{how}"),
+        LockActiveGroup(how) => format!("lockactivegroups{sep}{how}"),
         MoveIntoGroup(dir) => format!("moveintogroup{sep}{dir}"),
+        MoveWindowOrGroup(dir) => format!("movewindoworgroup{sep}{dir}"),
         MoveOutOfGroup => "moveoutofgroup".to_string(),
+        MoveGroupWindow(dir) => format!("movegroupwindow{sep}{dir}"),
+        DenyWindowFromGroup(state) => format!("denywindowfromgroup{sep}{state}"),
+        SetIgnoreGroupLock(state) => format!("setignoregrouplock{sep}{state}"),
     };
 
     if let SetCursor(_, _) = cmd {
@@ -870,16 +909,28 @@ impl Dispatch {
 /// Macro abstraction over [Dispatch::call]
 #[macro_export]
 macro_rules! dispatch {
-    (async; $instance:expr, $dis:ident, $( $arg:expr ), *) => {
-        $crate::dispatch::Dispatch::instance_call_async($instance, $crate::dispatch::DispatchType::$dis($($arg), *))
+    (async; $dis:ident) => {
+        $crate::dispatch::Dispatch::call_async($crate::dispatch::DispatchType::$dis)
     };
     (async; $dis:ident, $( $arg:expr ), *) => {
         $crate::dispatch::Dispatch::call_async($crate::dispatch::DispatchType::$dis($($arg), *))
     };
-    ($instance:expr, $dis:ident, $( $arg:expr ), *) => {
-        $crate::dispatch::Dispatch::instance_call($instance, $crate::dispatch::DispatchType::$dis($($arg), *))
+    (async; $instance:expr; $dis:ident) => {
+        $crate::dispatch::Dispatch::instance_call_async($instance, $crate::dispatch::DispatchType::$dis)
+    };
+    (async; $instance:expr; $dis:ident, $( $arg:expr ), *) => {
+        $crate::dispatch::Dispatch::instance_call_async($instance, $crate::dispatch::DispatchType::$dis($($arg), *))
+    };
+    ($dis:ident) => {
+        $crate::dispatch::Dispatch::call($crate::dispatch::DispatchType::$dis)
     };
     ($dis:ident, $( $arg:expr ), *) => {
         $crate::dispatch::Dispatch::call($crate::dispatch::DispatchType::$dis($($arg), *))
+    };
+    ($instance:expr; $dis:ident) => {
+        $crate::dispatch::Dispatch::instance_call($instance, $crate::dispatch::DispatchType::$dis)
+    };
+    ($instance:expr; $dis:ident, $( $arg:expr ), *) => {
+        $crate::dispatch::Dispatch::instance_call($instance, $crate::dispatch::DispatchType::$dis($($arg), *))
     };
 }
