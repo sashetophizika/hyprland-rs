@@ -414,6 +414,8 @@ pub enum DispatchType<'a> {
     ToggleFakeFullscreen,
     /// This dispatcher sets the DPMS status for all monitors
     ToggleDPMS(bool, Option<&'a str>),
+    /// This dispatcher sets the time for all idle timers in seconds, ignoring inhibitors
+    ForceIdle(f32),
     /// This dispatcher toggles pseudo tiling for the current window
     TogglePseudo,
     /// This dispatcher pins the active window to all workspaces
@@ -662,6 +664,7 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
                 mon.unwrap_or_default()
             )
         }
+        ForceIdle(t) => format!("forceidle{sep}{t}"),
         TogglePseudo => "pseudo".to_string(),
         TogglePin => "pin".to_string(),
         TogglePinWindow(win) => format!("pin{sep}{win}"),
