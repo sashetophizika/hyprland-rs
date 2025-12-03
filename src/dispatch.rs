@@ -467,6 +467,8 @@ pub enum DispatchType<'a> {
     ForceRendererReload,
     /// This dispatcher moves the current workspace to a specified monitor
     MoveCurrentWorkspaceToMonitor(MonitorIdentifier<'a>),
+    /// This dispatcher focuses the workspace on the current monitor
+    FocusWorkspaceOnCurrentMonitor(WorkspaceIdentifier<'a>),
     /// This dispatcher moves a specified workspace to a specified monitor
     MoveWorkspaceToMonitor(WorkspaceIdentifier<'a>, MonitorIdentifier<'a>),
     /// This dispatcher swaps the active workspaces of two monitors
@@ -691,6 +693,7 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         Exit => "exit".to_string(),
         ForceRendererReload => "forcerendererreload".to_string(),
         MoveCurrentWorkspaceToMonitor(mon) => format!("movecurrentworkspacetomonitor{sep}{mon}"),
+        FocusWorkspaceOnCurrentMonitor(work) => format!("focusworkspaceoncurrentmonitor{sep}{work}"),
         MoveWorkspaceToMonitor(work, mon) => format!("moveworkspacetomonitor{sep}{work} {mon}"),
         ToggleSpecialWorkspace(Some(name)) => format!("togglespecialworkspace {name}"),
         ToggleSpecialWorkspace(None) => "togglespecialworkspace".to_string(),
