@@ -422,13 +422,17 @@ pub enum DispatchType<'a> {
     ),
     /// This dispatcher executes a program
     Exec(&'a str),
+    /// This dispatcher executes a raw shell command ignoring window rules
+    ExecRaw(&'a str),
     /// This dispatcher passes a keybind to a window when called in a
     /// keybind, its used for global keybinds. And should **ONLY** be used with keybinds
     Pass(WindowIdentifier<'a>),
     /// Executes a Global Shortcut using the GlobalShortcuts portal.
     Global(&'a str),
-    /// This dispatcher kills the active window/client
+    /// This dispatcher closes the active window/client
     KillActiveWindow,
+    /// This dispatcher kills the active window/client
+    ForceKillActiveWindow,
     /// This dispatcher closes the specified window
     CloseWindow(WindowIdentifier<'a>),
     /// This dispatcher changes the current workspace
@@ -444,8 +448,12 @@ pub enum DispatchType<'a> {
         WorkspaceIdentifierWithSpecial<'a>,
         Option<WindowIdentifier<'a>>,
     ),
-    /// This dispatcher floats a window (current if not specified)
+    /// This dispatcher toggles the floating state of a window (current if not specified)
     ToggleFloating(Option<WindowIdentifier<'a>>),
+    /// This dispatcher floats a window (current if not specified)
+    SetFloating(Option<WindowIdentifier<'a>>),
+    /// This dispatcher tiles a window (current if not specified)
+    SetTiled(Option<WindowIdentifier<'a>>),
     /// This dispatcher toggles the current window fullscreen state
     ToggleFullscreen(FullscreenType),
     /// This dispatcher sets the focused window’s fullscreen mode and the one sent to the client
@@ -528,6 +536,8 @@ pub enum DispatchType<'a> {
     FocusCurrentOrLast,
     /// Change the current mapping group
     Submap(SubmapParam<'a>),
+    /// Swallow or Unswallow a window
+    ToggleSwallow,
 
     // LAYOUT DISPATCHERS
     // DWINDLE
@@ -695,9 +705,11 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
     let string_to_pass = match &cmd {
         Custom(name, args) => format!("{name}{sep}{args}"),
         Exec(sh) => format!("exec{sep}{sh}"),
+        ExecRaw(sh) => format!("execr{sep}{sh}"),
         Pass(win) => format!("pass{sep}{win}"),
         Global(name) => format!("global{sep}{name}"),
         KillActiveWindow => "killactive".to_string(),
+        ForceKillActiveWindow => "forcekillactive".to_string(),
         CloseWindow(win) => format!("closewindow{sep}{win}"),
         Workspace(work) => format!("workspace{sep}{work}"),
         MoveToWorkspace(work, Some(win)) => format!("movetoworkspace{sep}{work},{win}"),
@@ -706,6 +718,10 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         MoveToWorkspaceSilent(work, None) => format!("movetoworkspacesilent{sep}{work}"),
         ToggleFloating(Some(v)) => format!("togglefloating{sep}{v}"),
         ToggleFloating(None) => "togglefloating".to_string(),
+        SetFloating(Some(v)) => format!("setfloating{sep}{v}"),
+        SetFloating(None) => "setfloating".to_string(),
+        SetTiled(Some(v)) => format!("settiled{sep}{v}"),
+        SetTiled(None) => "settiled".to_string(),
         ToggleFullscreen(ftype) => format!("fullscreen{sep}{ftype}"),
         ToggleFullscreenState(int, cl) => format!("fullscreenstate{sep}{int} {cl}"),
         ToggleFakeFullscreen => "fakefullscreen".to_string(),
@@ -746,7 +762,9 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         Exit => "exit".to_string(),
         ForceRendererReload => "forcerendererreload".to_string(),
         MoveCurrentWorkspaceToMonitor(mon) => format!("movecurrentworkspacetomonitor{sep}{mon}"),
-        FocusWorkspaceOnCurrentMonitor(work) => format!("focusworkspaceoncurrentmonitor{sep}{work}"),
+        FocusWorkspaceOnCurrentMonitor(work) => {
+            format!("focusworkspaceoncurrentmonitor{sep}{work}")
+        }
         MoveWorkspaceToMonitor(work, mon) => format!("moveworkspacetomonitor{sep}{work} {mon}"),
         ToggleSpecialWorkspace(Some(name)) => format!("togglespecialworkspace {name}"),
         ToggleSpecialWorkspace(None) => "togglespecialworkspace".to_string(),
@@ -771,6 +789,7 @@ pub(crate) fn gen_dispatch_str(cmd: DispatchType, dispatch: bool) -> crate::Resu
         MoveToRoot(Some(win), param) => format!("layoutmsg{sep}movetoroot {win} {param}"),
         MoveToRoot(None, _) => format!("layoutmsg{sep}movetoroot"),
         Submap(param) => format!("submap{sep}{param}"),
+        ToggleSwallow => "toggleswallow".to_string(),
         SwapWithMaster(param) => format!("layoutmsg{sep}swapwithmaster {param}"),
         FocusMaster(param) => format!("layoutmsg{sep}focusmaster {param}"),
         CycleNextMaster(param) => format!("layoutmsg{sep}cyclenext {param}"),
